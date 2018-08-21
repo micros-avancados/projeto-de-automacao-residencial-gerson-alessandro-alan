@@ -1,6 +1,3 @@
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-
 /*------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Sensor DS18B20 ------------------------*/
@@ -13,19 +10,22 @@ char temperaturaString[6];
 float temperatura;
 int controleTemperatura = 0;
 int diferencaTemperatura = 3;
-/*------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------*/
-
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao Wi-FI ------------------------*/
+#include <ESP8266WiFi.h>
 const char* ssid = "AndroidAP";
 const char* password =  "s4ohredo";
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao ServerMQTT ------------------------*/
+#include <PubSubClient.h>
 const char* mqttServer = "m12.cloudmqtt.com";
 const int mqttPort = 10610;
 const char* mqttUser = "sunpkpbw";
 const char* mqttPassword = "6tZ6hn10S6jZ";
-int cont = 0;
 WiFiClient espClient;
 PubSubClient client(espClient);
-
+/*--------------------------------------------------------------------------
+  --------------------------------------------------------------------------*/
 float getTemperatura() {
   float temp;
   do {
@@ -36,22 +36,24 @@ float getTemperatura() {
   return temp;
 }
 
+void initWifi(){
+   WiFi.begin(ssid, password);
+   while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+  Serial.println("Connected to the WiFi network");
+}
+
 void setup() {
  
   Serial.begin(115200);
- 
-  WiFi.begin(ssid, password);
+  initWifi();
   
   DS18B20.begin();
   temperatura = getTemperatura();
   dtostrf(temperatura, 2, 2, temperaturaString);
   
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("Connecting to WiFi..");
-  }
-  Serial.println("Connected to the WiFi network");
- 
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
   
