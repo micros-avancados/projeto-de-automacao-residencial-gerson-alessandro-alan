@@ -1,3 +1,8 @@
+#include <NTPClient.h>//Biblioteca do NTP.
+#include <WiFiUdp.h>//Biblioteca do UDP.
+WiFiUDP udp;//Cria um objeto "UDP".
+NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000);//Cria um objeto "NTP" com as configurações.
+String hora;//Váriavel que armazenara o horario do NTP.
 /*------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Sensor DS18B20 ------------------------*/
@@ -45,15 +50,7 @@ void initWifi(){
   Serial.println("Connected to the WiFi network");
 }
 
-void setup() {
- 
-  Serial.begin(115200);
-  initWifi();
-  
-  DS18B20.begin();
-  temperatura = getTemperatura();
-  dtostrf(temperatura, 2, 2, temperaturaString);
-  
+void initMQTT(){
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
   
@@ -72,7 +69,19 @@ void setup() {
       
     }
   }
+}
 
+void setup() {    
+  Serial.begin(115200);
+  initWifi(); 
+  initMQTT();
+  
+  ntp.begin();//Inicia o NTP.
+  ntp.forceUpdate();//Força o Update.
+
+//  DS18B20.begin();
+//  temperatura = getTemperatura();
+//  dtostrf(temperatura, 2, 2, temperaturaString);
  client.subscribe("TemperaturaAtual");
   
 }
@@ -96,12 +105,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void loop() {
   client.loop();
 
-  temperatura = getTemperatura();
-  dtostrf(temperatura, 2, 2, temperaturaString);
+//  temperatura = getTemperatura();
+//  dtostrf(temperatura, 2, 2, temperaturaString);
 
   delay(5000);  
   Serial.println(temperaturaString);
-  client.publish("TemperaturaAtual", temperaturaString );
+  client.publish("TemperaturaAtual", "5" );
+  hora = ntp.getFormattedTime();//Armazena na váriavel HORA, o horario atual.
+  Serial.println(hora);//Printa a hora já formatada no monitor.
+//  client.publish("TemperaturaAtual", hora );
 
   
 }
