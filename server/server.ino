@@ -3,7 +3,9 @@
 int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida 
 //const char* ssid = "";
 //const char* password =  "";
-boolean formato; // false (0) - normal true (1) configuraçao
+int modo; // false (0) - normal true (1) configuraçao
+#define botao D2
+#define buzzer D1
 /*--------------------------------------------------------------------------
   --------------------------Configuracao NTP Server ------------------------*/
 #include <NTPClient.h>//Biblioteca do NTP.
@@ -83,8 +85,25 @@ void initMQTT(){
     }
   }
 }
+void rotinaModo(){
+    //Testa botao modo
+  modo = digitalRead(botao);
+  if (modo == LOW)
+  {
+    Serial.println("botao desligado"); 
+    Serial.println(modo); 
+    delay(10);
+  }else if (modo == HIGH)
+  {
+    Serial.println("botao clicado"); 
+    Serial.println(modo);
+    delay(2000);
+  }
+}
 
-void setup() {    
+void setup() { 
+  pinMode(buzzer, OUTPUT);
+  pinMode(botao, INPUT);   
   Serial.begin(115200);
   DS18B20.begin();
   initWifi(); 
@@ -114,15 +133,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
  
 void loop() {
+  tone(buzzer,1500); 
+  delay(200);
+  noTone(buzzer); 
   client.loop();
+  rotinaModo();
   temperatura = getTemperatura();
   dtostrf(temperatura, 2, 2, temperaturaString);
-
-  delay(5000);  
   Serial.println(temperaturaString);
   client.publish("TemperaturaAtual", temperaturaString );
   hora = ntp.getFormattedTime();//Armazena na váriavel HORA, o horario atual.
   Serial.println(hora);//Printa a hora já formatada no monitor.
 //  client.publish("TemperaturaAtual", hora );  
+  delay(5000);  
 }
 
