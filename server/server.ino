@@ -1,9 +1,9 @@
 /*--------------------------------------------------------------------------
-  --------------------------Variáveis globais ajustaveis: ------------------------*/
-int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida 
+  --------------------------VariÃ¡veis globais ajustaveis: ------------------------*/
+int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida
 //const char* ssid = "";
 //const char* password =  "";
-int modo; // false (0) - normal true (1) configuraçao
+int modo; // false (0) - normal true (1) configuraÃ§ao
 #define botao D2
 #define buzzer D1
 /*--------------------------------------------------------------------------
@@ -11,8 +11,8 @@ int modo; // false (0) - normal true (1) configuraçao
 #include <NTPClient.h>//Biblioteca do NTP.
 #include <WiFiUdp.h>//Biblioteca do UDP.
 WiFiUDP udp;//Cria um objeto "UDP".
-NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000);//Cria um objeto "NTP" com as configurações.
-String hora;//Váriavel que armazenara o horario do NTP.
+NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000);//Cria um objeto "NTP" com as configuraÃ§Ãµes.
+String hora;//VÃ¡riavel que armazenara o horario do NTP.
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Sensor DS18B20 ------------------------*/
 #include <OneWire.h>
@@ -31,7 +31,7 @@ const char* ssid = "WifiCasa";
 const char* password =  "84432320";
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Wi-FI Server ------------------------*/
-#include <WiFiClient.h> 
+#include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 ESP8266WebServer server(80);
 String html;//String que armazena o corpo do site.
@@ -56,71 +56,71 @@ float getTemperatura() {
   return temp;
 }
 
-void initWifi(){
-   WiFi.begin(ssid, password);
-   while (WiFi.status() != WL_CONNECTED) {
+void initWifi() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
   Serial.println("Connected to the WiFi network");
 }
 
-void initMQTT(){
+void initMQTT() {
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
-  
+
   while (!client.connected()) {
     Serial.println("Connecting to MQTT...");
- 
+
     if (client.connect("Micros", mqttUser, mqttPassword )) {
- 
-      Serial.println("connected");  
- 
+
+      Serial.println("connected");
+
     } else {
- 
+
       Serial.print("failed with state ");
       Serial.print(client.state());
       delay(2000);
-      
+
     }
   }
 }
-void rotinaModo(){
-    //Testa botao modo
+void rotinaModo() {
+  //Testa botao modo
   modo = digitalRead(botao);
   if (modo == LOW)
   {
-    Serial.println("botao desligado"); 
-    Serial.println(modo); 
-    delay(10);
-  }else if (modo == HIGH)
+    Serial.println("botao desligado");
+    Serial.println(modo);
+    delay(500);
+  } else if (modo == HIGH)
   {
-    Serial.println("botao clicado"); 
+    Serial.println("botao clicado");
     Serial.println(modo);
     delay(2000);
   }
 }
 
-void setup() { 
+void setup() {
   pinMode(buzzer, OUTPUT);
-  pinMode(botao, INPUT);   
+  pinMode(botao, INPUT);
   Serial.begin(115200);
   DS18B20.begin();
-  initWifi(); 
+  initWifi();
   initMQTT();
-  
+
   Serial.println(WiFi.localIP());//Printa o IP que foi consebido ao ESP8266 (este ip que voce ira acessar).
 
-   
+
   ntp.begin();//Inicia o NTP.
-  ntp.forceUpdate();//Força o Update.
+  ntp.forceUpdate();//ForÃ§a o Update.
 
   temperatura = getTemperatura();
   dtostrf(temperatura, 2, 2, temperaturaString);
- client.subscribe("TemperaturaAtual");
-  
+  client.subscribe("TemperaturaAtual");
+
 }
- 
+
 void callback(char* topic, byte* payload, unsigned int length) {
 
   String message;
@@ -131,20 +131,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(String(topic) + "=" + String(message));
   Serial.flush();
 }
- 
+
 void loop() {
-  tone(buzzer,1500); 
+  tone(buzzer, 1500);
   delay(200);
-  noTone(buzzer); 
+  noTone(buzzer);
   client.loop();
   rotinaModo();
   temperatura = getTemperatura();
   dtostrf(temperatura, 2, 2, temperaturaString);
   Serial.println(temperaturaString);
   client.publish("TemperaturaAtual", temperaturaString );
-  hora = ntp.getFormattedTime();//Armazena na váriavel HORA, o horario atual.
-  Serial.println(hora);//Printa a hora já formatada no monitor.
-//  client.publish("TemperaturaAtual", hora );  
-  delay(5000);  
+  hora = ntp.getFormattedTime();//Armazena na vÃ¡riavel HORA, o horario atual.
+  Serial.println(hora);//Printa a hora jÃ¡ formatada no monitor.
+  //  client.publish("TemperaturaAtual", hora );
+  delay(5000);
 }
+
 
