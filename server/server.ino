@@ -3,7 +3,9 @@
 int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida
 //const char* ssid = "";
 //const char* password =  "";
-int modo; // false (0) - normal true (1) configuraÃ§ao
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao modo ------------------------*/
+byte modo; // false (0) - normal true (1) configuraÃ§ao
 #define botao D2
 #define buzzer D1
 /*--------------------------------------------------------------------------
@@ -86,22 +88,27 @@ void initMQTT() {
   }
 }
 void rotinaModo() {
-  //Testa botao modo
+  // faz a leitura do pino D2 (no nosso caso, o botão está ligado nesse pino)
   modo = digitalRead(botao);
-  if (modo == LOW)
-  {
-    Serial.println("botao desligado");
-    Serial.println(modo);
-    delay(500);
-  } else if (modo == HIGH)
-  {
-    Serial.println("botao clicado");
-    Serial.println(modo);
-    delay(2000);
+  // checa se o botão está pressionado
+  if (modo == HIGH) {
+    while(1){
+      beep();
+    }
+    Serial.print("botao clicado ");
+  }
+  else {
+    Serial.print("botao desligado ");
   }
 }
 
+void beep(){
+  tone(buzzer, 1500);
+  delay(200);
+  noTone(buzzer);
+}
 void setup() {
+  rotinaModo();
   pinMode(buzzer, OUTPUT);
   pinMode(botao, INPUT);
   Serial.begin(115200);
@@ -133,11 +140,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void loop() {
-  tone(buzzer, 1500);
-  delay(200);
-  noTone(buzzer);
+
   client.loop();
-  rotinaModo();
   temperatura = getTemperatura();
   dtostrf(temperatura, 2, 2, temperaturaString);
   Serial.println(temperaturaString);
