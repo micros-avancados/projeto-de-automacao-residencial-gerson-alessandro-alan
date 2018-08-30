@@ -1,19 +1,17 @@
-/*Código que toca uma música. Basta colocar as notas da musica em ordem na variavel musica abaixo
-  No fim das notas escreva "Fim"
-  Não use acentos e escreva a primeira letra maiuscula e a segunda minuscula
-  Logo depois defina, tambem em ordem, o tempo de cada nota
-  NOTAS DISPONÍVEIS:
-  Do, Re, Mi, Fa, Sol, La, Si, Do#, Re#, Fa#, Sol#, La#
-*/
+/*--------------------------------------------------------------------------
+  --------------------------Toque quando entra no modo configuração: ------------------------*/
 char* musica[] = {"La", "Re", "Fa", "Sol", "La", "Re", "Fa", "Sol", "Mi", "Pausa", "Sol", "Do", "Fa", "Mi", "Sol", "Do", "Fa", "Mi", "Re", "Fim"}; //Game of Thrones
 int duracao[] = {700, 500, 300, 250, 250, 300, 200, 200, 700, 200, 500, 500, 200, 200, 200, 500, 200, 200, 500};
-char* starwars[] = {"La", "Pausa", "La", "Pausa", "La", "Pausa", "Fa", "Do", "La", "Pausa", "Fa", "Do", "La", "Pausa", "Mi", "Pausa", "Mi", "Pausa", "Mi", "Pausa", "Fa", "Do", "Sol", "Pausa", "Fa", "Do", "La", "Pausa", "La", "Pausa", "La", "Pausa", "La", "Pausa", "La", "Pausa", "Sol#", "Pausa", "Sol", "Fa#", "Fa", "Fa#", "Fim"}; //Marcha Imperial
-int dur[] = {400, 100, 400, 100, 400, 100, 300, 200, 300, 100, 300, 200, 300, 200, 400, 100, 400, 100, 400, 100, 300, 300, 200, 100 , 300, 300, 200, 200, 400, 50, 400, 50, 400, 50, 400, 50, 300, 50, 300, 200, 200, 200};
 /*--------------------------------------------------------------------------
   --------------------------VariÃ¡veis globais ajustaveis: ------------------------*/
 int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida
-//const char* ssid = "";
-//const char* password =  "";
+char ssid[32];
+char password[32];
+char clientName[10] = "newClient";
+char ipAddr[16] = "172.024.001.001";//Pi Access Point IP-Adr.
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao EEPROM ------------------------*/
+#include <EEPROM.h>
 /*--------------------------------------------------------------------------
   --------------------------Configuracao modo ------------------------*/
 byte modo; // false (0) - normal true (1) configuraÃ§ao
@@ -40,8 +38,6 @@ int diferencaTemperatura = 3;
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Wi-FI ------------------------*/
 #include <ESP8266WiFi.h>
-const char* ssid = "WifiCasa";
-const char* password =  "84432320";
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Wi-FI Server ------------------------*/
 #include <WiFiClient.h>
@@ -59,6 +55,34 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 /*--------------------------------------------------------------------------
   --------------------------------------------------------------------------*/
+  
+void writeEEPROM(int startAdr, int laenge, char* writeString) {
+  EEPROM.begin(512); //Max bytes of eeprom to use
+  //yield();
+  Serial.println();
+  Serial.print("writing EEPROM: ");
+  //write to eeprom
+  for (int i = 0; i < laenge; i++)
+  {
+    EEPROM.write(startAdr + i, writeString[i]);
+    Serial.print(writeString[i]);
+  }
+  EEPROM.commit();
+  EEPROM.end();
+}
+
+void readEEPROM(int startAdr, int maxLength, char* dest) {
+  EEPROM.begin(512);
+  delay(10);
+  for (int i = 0; i < maxLength; i++)
+  {
+    dest[i] = char(EEPROM.read(startAdr + i));
+  }
+  EEPROM.end();
+  Serial.print("ready reading EEPROM:");
+  Serial.println(dest);
+}
+
 float getTemperatura() {
   float temp;
   do {
@@ -71,6 +95,8 @@ float getTemperatura() {
 
 void initWifi() {
   WiFi.begin(ssid, password);
+  Serial.println("SSID: " + String(ssid));
+  Serial.println("PASSWORD: " + String(password));
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting to WiFi..");
@@ -104,8 +130,22 @@ void rotinaModo() {
   // checa se o botão está pressionado
   if (modo == HIGH) {
     tocar(musica, duracao);
+    delay(1000);
+
+    strcat(ssid, "WifiCasa");
+    strcat(password, "84432320");
+
+    writeEEPROM(0, 32, ssid); //32 byte max length
+    writeEEPROM(32, 32, password); //32 byte max length
+    writeEEPROM(64, 10, clientName); //10 byte max length
+    writeEEPROM(74, 16, ipAddr); //16 byte max length
+    Serial.println("everything saved...");
   }
   else {
+    readEEPROM(0, 32, ssid);
+    readEEPROM(32, 32, password);
+    readEEPROM(64, 10, clientName);
+    readEEPROM(74, 16, ipAddr);
   }
 }
 
@@ -141,6 +181,7 @@ void setup() {
   pinMode(botao, INPUT);
   Serial.begin(115200);
   rotinaModo();
+
   DS18B20.begin();
   initWifi();
   initMQTT();
