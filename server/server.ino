@@ -10,10 +10,16 @@ char password[32];
 char clientName[10] = "newClient";
 char ipAddr[16] = "172.024.001.001";//Pi Access Point IP-Adr.
 /*--------------------------------------------------------------------------
+  --------------------------Configuracao Wi-FI ------------------------*/
+#include <ESP8266WiFi.h>
+/*--------------------------------------------------------------------------
   --------------------------Configuracao EEPROM ------------------------*/
 #include <EEPROM.h>
 /*--------------------------------------------------------------------------
   --------------------------Configuracao modo ------------------------*/
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+#include <WiFiManager.h>
 byte modo; // false (0) - normal true (1) configuraÃ§ao
 #define botao D2
 #define buzzer D1
@@ -36,15 +42,6 @@ float temperatura;
 int controleTemperatura = 0;
 int diferencaTemperatura = 3;
 /*--------------------------------------------------------------------------
-  --------------------------Configuracao Wi-FI ------------------------*/
-#include <ESP8266WiFi.h>
-/*--------------------------------------------------------------------------
-  --------------------------Configuracao Wi-FI Server ------------------------*/
-#include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-ESP8266WebServer server(80);
-String html;//String que armazena o corpo do site.
-/*--------------------------------------------------------------------------
   --------------------------Configuracao ServerMQTT ------------------------*/
 #include <PubSubClient.h>
 const char* mqttServer = "m14.cloudmqtt.com";
@@ -55,10 +52,10 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 /*--------------------------------------------------------------------------
   --------------------------------------------------------------------------*/
-  
+
 void writeEEPROM(int startAdr, int laenge, char* writeString) {
   EEPROM.begin(512); //Max bytes of eeprom to use
-  //yield();
+  yield();
   Serial.println();
   Serial.print("writing EEPROM: ");
   //write to eeprom
@@ -95,13 +92,13 @@ float getTemperatura() {
 
 void initWifi() {
   WiFi.begin(ssid, password);
-  Serial.println("SSID: " + String(ssid));
-  Serial.println("PASSWORD: " + String(password));
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
   Serial.println("Connected to the WiFi network");
+  Serial.println("SSID: " + String(ssid));
+  Serial.println("PASSWORD: " + String(password));
 }
 
 void initMQTT() {
@@ -131,21 +128,11 @@ void rotinaModo() {
   if (modo == HIGH) {
     tocar(musica, duracao);
     delay(1000);
-
-    strcat(ssid, "WifiCasa");
-    strcat(password, "84432320");
-
-    writeEEPROM(0, 32, ssid); //32 byte max length
-    writeEEPROM(32, 32, password); //32 byte max length
-    writeEEPROM(64, 10, clientName); //10 byte max length
-    writeEEPROM(74, 16, ipAddr); //16 byte max length
-    Serial.println("everything saved...");
+    WiFiManager wifiManager;
+    wifiManager. startConfigPortal ( "MicrosWifiAP" );
+    Serial. println ( " conectado ... yeey :) " );
   }
   else {
-    readEEPROM(0, 32, ssid);
-    readEEPROM(32, 32, password);
-    readEEPROM(64, 10, clientName);
-    readEEPROM(74, 16, ipAddr);
   }
 }
 
@@ -181,7 +168,6 @@ void setup() {
   pinMode(botao, INPUT);
   Serial.begin(115200);
   rotinaModo();
-
   DS18B20.begin();
   initWifi();
   initMQTT();

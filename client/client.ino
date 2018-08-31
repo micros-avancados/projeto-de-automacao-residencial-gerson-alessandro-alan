@@ -1,4 +1,25 @@
 /*--------------------------------------------------------------------------
+  --------------------------VariÃ¡veis globais ajustaveis: ------------------------*/
+int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida
+char ssid[32];
+char password[32];
+char clientName[10] = "newClient";
+char ipAddr[16] = "172.024.001.001";//Pi Access Point IP-Adr.
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao Wi-FI ------------------------*/
+#include <ESP8266WiFi.h>
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao EEPROM ------------------------*/
+#include <EEPROM.h>
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao modo ------------------------*/
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+#include <WiFiManager.h>
+byte modo; // false (0) - normal true (1) configuraÃ§ao
+#define botao D2
+#define led D1
+/*--------------------------------------------------------------------------/*--------------------------------------------------------------------------
   --------------------------Configuracao SENSOR IR ------------------------*/
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
@@ -10,11 +31,6 @@ uint16_t liga[] = {4600, 4150, 800, 1350, 800, 300, 750, 1400, 750, 1400, 750, 3
 // BOTÃO DESLIGA
 uint16_t desliga[] = {4500, 4200, 650, 1450, 700, 400, 650, 1450, 650, 1500, 650, 400, 650, 450, 650, 1500, 600, 450, 650, 450, 600, 1500, 650, 450, 600, 500, 600, 1500, 600, 1550, 600, 450, 600, 1550, 600, 450, 600, 1550, 600, 1550, 600, 1550, 600, 1550, 600, 450, 600, 1550, 600, 1500, 600, 1550, 600, 450, 600, 500, 600, 450, 600, 500, 550, 1550, 600, 500, 550, 500, 600, 1550, 600, 1500, 600, 1550, 600, 500, 550, 500, 600, 450, 600, 500, 600, 450, 600, 500, 600, 450, 600, 450, 600, 1550, 600, 1550, 600, 1550, 550, 1600, 550, 1550, 550}; //COLE A LINHA RAW CORRESPONDENTE DENTRO DAS CHAVES
 /*--------------------------------------------------------------------------
-  --------------------------Configuracao Wi-FI ------------------------*/
-#include <ESP8266WiFi.h>
-const char* ssid = "WifiCasa";
-const char* password =  "84432320";
-/*--------------------------------------------------------------------------
   --------------------------Configuracao ServerMQTT ------------------------*/
 #include <PubSubClient.h>
 const char* mqttServer = "m14.cloudmqtt.com";
@@ -25,40 +41,66 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 /*--------------------------------------------------------------------------
   --------------------------------------------------------------------------*/
-void initWifi(){
-   WiFi.begin(ssid, password);
-   while (WiFi.status() != WL_CONNECTED) {
+void initWifi() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
   Serial.println("Connected to the WiFi network");
 }
 
-void initMQTT(){
+void initMQTT() {
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
   while (!client.connected()) {
     Serial.println("Connecting to MQTT...");
     if (client.connect("Micros2", mqttUser, mqttPassword )) {
-      Serial.println("connected");  
+      Serial.println("connected");
     } else {
       Serial.print("failed with state ");
       Serial.print(client.state());
-      delay(2000);    
+      delay(2000);
     }
   }
 }
+
+void piscaled() {
+  for (int i = 0; i < 20; i++) {
+    digitalWrite(led, HIGH);
+    delay(200);
+    digitalWrite(led, LOW);
+    delay(200);
+  }
+}
+void rotinaModo() {
+  // faz a leitura do pino D2 (no nosso caso, o botão está ligado nesse pino)
+  modo = digitalRead(botao);
+  // checa se o botão está pressionado
+  if (modo == HIGH) {
+    piscaled();
+    delay(1000);
+    WiFiManager wifiManager;
+    wifiManager.startConfigPortal ( "MicrosWifiAP" );
+    Serial. println ( " conectado ... yeey :) " );
+  }
+  else {
+  }
+}
+
 void setup() {
- 
+  pinMode(led, OUTPUT);
+  pinMode(botao, INPUT);
   Serial.begin(115200);
+  rotinaModo();
   initWifi();
   initMQTT();
   irsend.begin(); //INICIALIZA A FUNÇÃO
 
- client.subscribe("TemperaturaAtual");
-  
+  client.subscribe("TemperaturaAtual");
+
 }
- 
+
 void callback(char* topic, byte* payload, unsigned int length) {
 
   String message;
@@ -67,32 +109,32 @@ void callback(char* topic, byte* payload, unsigned int length) {
     message += c;
   }
   Serial.println(String(topic) + "=" + String(message));
-   
- if (message == "4") {
-  
-//    digitalWrite(D5, 1);
 
-Serial.println("Deu certo");
- }
- //else {  
-//    digitalWrite(D5, 0);
-//  }
+  if (message == "4") {
+
+    //    digitalWrite(D5, 1);
+
+    Serial.println("Deu certo");
+  }
+  //else {
+  //    digitalWrite(D5, 0);
+  //  }
   Serial.flush();
 }
- 
+
 void loop() {
   client.loop();
   char c = Serial.read(); //VARIÁVEL RESPONSÁVEL POR RECEBER O CARACTER DIGITADO NA JANELA SERIAL
-    
-    if (c == 'l'){ //SE CARACTER DIGITADO FOR IGUAL A "a", FAZ
-        irsend.sendRaw(liga,tamanho,frequencia);  // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
-        Serial.println("Comando enviado: Liga");
-        delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO
-    } 
-    if (c == 'd'){ //SE CARACTER DIGITADO FOR IGUAL A "a", FAZ
-        irsend.sendRaw(desliga,tamanho,frequencia);  // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
-        Serial.println("Comando enviado: Desliga");
-        delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO
-    }
-  
+
+  if (c == 'l') { //SE CARACTER DIGITADO FOR IGUAL A "a", FAZ
+    irsend.sendRaw(liga, tamanho, frequencia); // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
+    Serial.println("Comando enviado: Liga");
+    delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO
+  }
+  if (c == 'd') { //SE CARACTER DIGITADO FOR IGUAL A "a", FAZ
+    irsend.sendRaw(desliga, tamanho, frequencia); // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
+    Serial.println("Comando enviado: Desliga");
+    delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO
+  }
+
 }
