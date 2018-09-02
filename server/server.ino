@@ -91,14 +91,15 @@ float getTemperatura() {
 }
 
 void initWifi() {
-  WiFi.begin(ssid, password);
+  WiFi.begin();
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
   Serial.println("Connected to the WiFi network");
-  Serial.println("SSID: " + String(ssid));
-  Serial.println("PASSWORD: " + String(password));
+  Serial.println("Local IP: " + WiFi.localIP()); //Printa o IP que foi consebido ao ESP8266 (este ip que voce ira acessar).
+  Serial.println("SSID: " + WiFi.SSID());
+  Serial.println("MAC Adress: " + WiFi.macAddress());
 }
 
 void initMQTT() {
@@ -129,7 +130,7 @@ void rotinaModo() {
     tocar(musica, duracao);
     delay(1000);
     WiFiManager wifiManager;
-    wifiManager. startConfigPortal ( "MicrosWifiAP" );
+    wifiManager.startConfigPortal ( "MicrosWifiAP" );
     Serial. println ( " conectado ... yeey :) " );
   }
   else {
@@ -171,9 +172,6 @@ void setup() {
   DS18B20.begin();
   initWifi();
   initMQTT();
-
-  Serial.println(WiFi.localIP());//Printa o IP que foi consebido ao ESP8266 (este ip que voce ira acessar).
-
 
   ntp.begin();//Inicia o NTP.
   ntp.forceUpdate();//ForÃ§a o Update.
