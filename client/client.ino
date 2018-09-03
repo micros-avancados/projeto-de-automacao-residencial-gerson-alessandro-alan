@@ -1,9 +1,6 @@
 /*--------------------------------------------------------------------------
   --------------------------VariÃ¡veis globais ajustaveis: ------------------------*/
-int intervalo_tempo; // em milesegundos, para atualizar a temperatura lida
-char ssid[32];
-char password[32];
-char clientName[10] = "newClient";
+char intervaloTempo[10] = "10"; // em milesegundos, para atualizar a temperatura lida
 char ipAddr[16] = "172.024.001.001";//Pi Access Point IP-Adr.
 /*--------------------------------------------------------------------------
   --------------------------Configuracao Wi-FI ------------------------*/
@@ -31,48 +28,54 @@ uint16_t liga[259] = {3292, 1624,  398, 418,  410, 440,  358, 1232,  420, 412,  
 // BOTÃO DESLIGA
 uint16_t desliga[] = {4500, 4200, 650, 1450, 700, 400, 650, 1450, 650, 1500, 650, 400, 650, 450, 650, 1500, 600, 450, 650, 450, 600, 1500, 650, 450, 600, 500, 600, 1500, 600, 1550, 600, 450, 600, 1550, 600, 450, 600, 1550, 600, 1550, 600, 1550, 600, 1550, 600, 450, 600, 1550, 600, 1500, 600, 1550, 600, 450, 600, 500, 600, 450, 600, 500, 550, 1550, 600, 500, 550, 500, 600, 1550, 600, 1500, 600, 1550, 600, 500, 550, 500, 600, 450, 600, 500, 600, 450, 600, 500, 600, 450, 600, 450, 600, 1550, 600, 1550, 600, 1550, 550, 1600, 550, 1550, 550}; //COLE A LINHA RAW CORRESPONDENTE DENTRO DAS CHAVES
 /*--------------------------------------------------------------------------
+  /*--------------------------------------------------------------------------
   --------------------------Configuracao ServerMQTT ------------------------*/
 #include <PubSubClient.h>
-const char* mqttServer = "m14.cloudmqtt.com";
-const int mqttPort = 15015;
-const char* mqttUser = "nyggmttv";
-const char* mqttPassword = "hMmfyHEX9rIr";
+char mqttServer[40] = "m14.cloudmqtt.com";
+char mqttPort[10] = "15015";
+char mqttUser[40] = "nyggmttv";
+char mqttPassword[40] = "hMmfyHEX9rIr";
+char mqttTopic[40] = "TemperaturaAtual";
+char mqttName[40] = "Micros";
 WiFiClient espClient;
 PubSubClient client(espClient);
+WiFiManagerParameter custom_mqtt_server("server", "mqttServer", mqttServer, 40);
+WiFiManagerParameter custom_mqtt_port("port", "mqttPort", mqttPort, 10);
+WiFiManagerParameter custom_mqtt_user("user", "mqttUser", mqttUser, 40);
+WiFiManagerParameter custom_mqtt_password("password", "mqttPassword", mqttPassword, 40);
+WiFiManagerParameter custom_mqtt_topic("topic", "mqttTopic", mqttTopic, 40);
+WiFiManagerParameter custom_mqtt_name("name", "mqttName", mqttName, 40);
+WiFiManagerParameter custom_intervalo_tempo("intervaloTempo", "intervaloTempo", intervaloTempo, 10);
 /*--------------------------------------------------------------------------
   --------------------------------------------------------------------------*/
-void initWifi() {
-  WiFi.begin();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("Connecting to WiFi..");
-  }
-  Serial.println("Connected to the WiFi network");
-  Serial.println("Local IP: " + WiFi.localIP()); //Printa o IP que foi consebido ao ESP8266 (este ip que voce ira acessar).
-  Serial.println("SSID: " + WiFi.SSID());
-  Serial.println("MAC Adress: " + WiFi.macAddress());
-}
 void initMQTT() {
-  client.setServer(mqttServer, mqttPort);
+  int port = parseInt(mqttPort);
+  client.setServer(mqttServer, 15015);
   client.setCallback(callback);
+
   while (!client.connected()) {
     Serial.println("Connecting to MQTT...");
-    if (client.connect("Micros2", mqttUser, mqttPassword )) {
+
+    if (client.connect(mqttName, mqttUser, mqttPassword )) {
+
       Serial.println("connected");
+
     } else {
+
       Serial.print("failed with state ");
       Serial.print(client.state());
       delay(2000);
+
     }
   }
 }
 
 void piscaled() {
-  for (int i = 0; i < 20; i++) {
+  for (int i = 0; i < 15; i++) {
     digitalWrite(led, HIGH);
-    delay(200);
+    delay(150);
     digitalWrite(led, LOW);
-    delay(200);
+    delay(150);
   }
 }
 void rotinaModo() {
@@ -83,11 +86,34 @@ void rotinaModo() {
     piscaled();
     delay(1000);
     WiFiManager wifiManager;
-    wifiManager.startConfigPortal ( "MicrosWifiAP" );
+    wifiManager.startConfigPortal ( "MicrosWifiAP", "janela"  );
     Serial. println ( " conectado ... yeey :) " );
   }
   else {
+    WiFiManager wifiManager;
+    wifiManager.autoConnect("MicrosWifiAP", "janela");
   }
+}
+
+int parseInt(char* chars)
+{
+  int sum = 0;
+  int len = strlen(chars);
+  for (int x = 0; x < len; x++)
+  {
+    int n = chars[len - (x + 1)] - '0';
+    sum = sum + pow(n, x);
+  }
+  return sum;
+}
+
+int powInt(int x, int y)
+{
+  for (int i = 0; i < y; i++)
+  {
+    x *= 10;
+  }
+  return x;
 }
 
 void setup() {
@@ -95,7 +121,6 @@ void setup() {
   pinMode(led, OUTPUT);
   pinMode(botao, INPUT);
   rotinaModo();
-  initWifi();
   initMQTT();
   irsend.begin(); //INICIALIZA A FUNÇÃO
 
@@ -112,15 +137,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println(String(topic) + "=" + String(message));
 
-  if (message == "4") {
-
-    //    digitalWrite(D5, 1);
-
-    Serial.println("Deu certo");
+  if (message >= "18" ) {
+    irsend.sendRaw(liga, tamanho, frequencia); // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
+    Serial.println("Comando enviado: Liga");
+    delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO;
   }
-  //else {
-  //    digitalWrite(D5, 0);
-  //  }
+  else {
+
+  }
   Serial.flush();
 }
 
