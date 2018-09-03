@@ -1,0 +1,174 @@
+#include <EEPROM.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h> 
+#include <ESP8266WebServer.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao Access ------------------------*/
+  
+const char *ssid = "Node_Micros";
+const char *password = "nodemicros";
+
+ESP8266WebServer server(80);
+
+/*------------------------------IP DE ACESSO-------------------------------
+  --------------------------http://192.168.4.1 ------------------------*/
+
+
+/*--------------------------------------------------------------------------
+  --------------------------Configuracao HTML ------------------------*/
+ 
+void handleRoot() {
+	server.send(200, "text/html",
+	  "<h1>Voce esta conectado!</h1>"
+	  "<br>"
+    "<a href=\"/configura\">Configurar Equipamento</a>"
+    "<br>"
+	);
+}
+
+void configura() {
+  //FORMULÁRIO
+  String html="<html><head><title>Configuracao</title>";
+  html += "<style>body {background-color: #cccccc; ";
+  html += "Color: #000088; }</style>";
+  html += "</head><body>";
+  html += "<h1>Configurando Node</h1>";
+  html += "<p>Preencha os campos abaixo:</p>";
+  html += "<form method='POST'>";
+  html += "<p>Nome da rede:</p>";
+  html += "<p><input type=text name=rede />";
+  html += "<p>Senha da rede:</p>";
+  html += "<p><input type=text name=senha />";
+  html += "<p>MqttServer:</p>";
+  html += "<p><input type=text name=servermqtt />";
+  html += "<p>MqttPort:</p>";
+  html += "<p><input type=text name=porta />";
+  html += "<p>MqttSenha:</p>";
+  html += "<p><input type=text name=senhamqtt />";
+  html += "<p></p>";
+  html += "<input type=submit name=enviar value=Gravar /></p>";
+  html += "</form>";
+  html += "</body></html>";
+  server.send(200, "text/html", html);
+
+  //PEGANDO VALORES DO FORM
+  String rede = server.arg("rede");
+  String senha = server.arg("senha");
+  String servermqtt = server.arg("servermqtt");
+  String porta = server.arg("porta");
+  String senhamqtt = server.arg("senhamqtt");
+
+  //VERIFICANDO SE NENHUM CAMPO FICOU EM BRANCO
+  if(rede.length() > 0 && senha.length() > 0 && servermqtt.length() > 0 && porta.length() > 0 && senhamqtt.length() > 0){
+    armazenando(rede, senha, servermqtt, porta, senhamqtt);
+  }
+}
+
+/*--------------------------------------------------------------------------
+  --------------------------GRAVANDO NA MEMÓRIA ------------------------*/
+  
+void armazenando(String r, String s, String sm, String p, String smq){
+
+  for (int i = 0; i < 150; ++i) { EEPROM.write(i, 0); }//limpa memória
+  
+  for (int i = 0; i < r.length(); ++i)
+            {
+              EEPROM.write(i, r[i]);
+              Serial.print("Rede: ");
+              Serial.println(r[i]); 
+            }
+  for (int i = 0; i < s.length(); ++i)
+            {
+              EEPROM.write(32+i, s[i]);
+              Serial.print("Senha: ");
+              Serial.println(s[i]); 
+            }  
+    
+  for (int i = 0; i < sm.length(); ++i)
+            {
+              EEPROM.write(64+i, sm[i]);
+              Serial.print("Servidor: ");
+              Serial.println(sm[i]); 
+            } 
+  for (int i = 0; i < p.length(); ++i)
+            {
+              EEPROM.write(96+i, p[i]);
+              Serial.print("Porta: ");
+              Serial.println(p[i]); 
+            }             
+  for (int i = 0; i < smq.length(); ++i)
+            {
+              EEPROM.write(128+i, smq[i]);
+              Serial.print("Senha servidor: ");
+              Serial.println(smq[i]); 
+            }  
+  EEPROM.end();
+}
+
+/*--------------------------------------------------------------------------
+  --------------------------LENDO MEMÓRIA ------------------------*/
+  
+void leitura(){
+  String rede = "";
+  String senha = "";
+  String servidor = "";
+  String porta = "";
+  String senhaservidor = "";
+  
+  for (int i = 0; i < 32; ++i)
+    {
+      rede += char(EEPROM.read(i));
+    }
+  for (int i = 32; i < 64; ++i)
+    {
+      senha += char(EEPROM.read(i));
+    }
+  for (int i = 64; i < 96; ++i)
+    {
+      servidor += char(EEPROM.read(i));
+    }
+  for (int i = 96; i < 128; ++i)
+    {
+      porta += char(EEPROM.read(i));
+    }  
+  for (int i = 128; i < 150; ++i)
+    {
+      senhaservidor += char(EEPROM.read(i));
+    }  
+  EEPROM.end();
+  Serial.println("Rede : "+rede);
+  Serial.println("senha: "+senha);
+  Serial.println("servidor: "+servidor);
+  Serial.println("porta: "+porta);
+  Serial.println("Senha servidor: "+senhaservidor);
+   
+}
+
+/*--------------------------------------------------------------------------
+  --------------------------Configuracões ------------------------*/
+void setup() {
+	delay(1000);
+  EEPROM.begin(512);
+	Serial.begin(115200);
+	Serial.println();
+	Serial.print("Configurando rede própria...");
+	/* You can remove the password parameter if you want the AP to be open. */
+	WiFi.softAP(ssid, password);
+
+	IPAddress myIP = WiFi.softAPIP();
+	Serial.print("AP IP address: ");
+	Serial.println(myIP);
+	server.on("/", handleRoot);
+  server.on("/configura", configura);
+	server.begin();
+	Serial.println("HTTP server started");
+}
+
+void loop() {
+	server.handleClient();
+}
+
+
