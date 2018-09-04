@@ -7,7 +7,11 @@ char ipAddr[16] = "172.024.001.001";//Pi Access Point IP-Adr.
 #include <ESP8266WiFi.h>
 /*--------------------------------------------------------------------------
   --------------------------Configuracao EEPROM ------------------------*/
+#include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <EEPROM.h>
+#include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
+//flag for saving data
+bool shouldSaveConfig = false;
 /*--------------------------------------------------------------------------
   --------------------------Configuracao modo ------------------------*/
 #include <ESP8266WebServer.h>
@@ -24,8 +28,7 @@ IRsend irsend(14); //FUNÇÃO RESPONSÁVEL PELO MÉTODO DE ENVIO DO SINAL IR / U
 int tamanho = 259; //TAMANHO DA LINHA RAW(68 BLOCOS)
 int frequencia = 32; //FREQUÊNCIA DO SINAL IR(32KHz)
 // BOTÃO LIGA
-uint16_t liga[259] = {3292, 1624,  398, 418,  410, 440,  358, 1232,  420, 412,  398, 1238,  398, 408,  396, 454,  360, 458,  358, 1248,  394, 1220,  418, 446,  360, 458,  356, 460,  358, 1232,  400, 1214,  426, 452,  356, 460,  360, 456,  360, 456,  358, 458,  358, 458,  360, 456,  360, 456,  358, 458,  360, 458,  356, 460,  358, 458,  358, 458,  358, 1248,  386, 458,  358, 456,  362, 458,  358, 458,  356, 460,  358, 458,  358, 458,  360, 1246,  386, 456,  360, 458,  358, 458,  358, 460,  360, 1226,  406, 1228,  404, 1250,  386, 1242,  392, 1226,  406, 1248,  382, 1258,  378, 1228,  404, 460,  358, 458,  356, 1250,  386, 456,  358, 458,  356, 460,  356, 460,  356, 460,  356, 460,  358, 458,  360, 456,  360, 1246,  408, 1200,  416, 454,  358, 458,  356, 1252,  384, 460,  356, 462,  356, 458,  360, 456,  360, 458,  358, 458,  356, 1250,  388, 458,  356, 460,  358, 458,  356, 460,  358, 458,  358, 458,  358, 458,  358, 458,  358, 458,  354, 462,  354, 462,  356, 460,  358, 458,  358, 458,  362, 432,  384, 456,  356, 460,  358, 458,  358, 456,  362, 456,  358, 418,  400, 458,  358, 432,  386, 432,  380, 460,  356, 460,  358, 438,  380, 458,  358, 454,  360, 436,  384, 450,  366, 456,  358, 456,  360, 452,  362, 436,  380, 434,  378, 434,  384, 432,  384, 440,  376, 456,  362, 424,  394, 434,  380, 454,  362, 430,  386, 428,  392, 1246,  398, 446,  356, 460,  356, 1236,  402, 1234,  398, 1234,  396, 1242,  392, 462,  356, 1250,  400, 444,  356, 460,  358};  // UNKNOWN 7F5F07F8
-// BOTÃO DESLIGA
+uint16_t liga[] = {4600, 4150, 800, 1350, 800, 300, 750, 1400, 750, 1400, 750, 300, 800, 300, 750, 1400, 750, 350, 750, 300, 750, 1450, 700, 350, 700, 400, 700, 1450, 700, 1450, 700, 400, 650, 1500, 650, 400, 700, 400, 650, 450, 650, 1500, 650, 1500, 650, 1500, 650, 1500, 650, 1500, 650, 1550, 600, 1500, 650, 1550, 600, 450, 600, 500, 600, 450, 650, 450, 650, 450, 600, 450, 650, 450, 600, 1550, 600, 500, 600, 450, 650, 1500, 600, 500, 600, 500, 600, 1550, 600, 1550, 600, 500, 600, 1500, 650, 1550, 600, 450, 600, 1550, 600, 1550, 600}; // BOTÃO DESLIGA
 uint16_t desliga[] = {4500, 4200, 650, 1450, 700, 400, 650, 1450, 650, 1500, 650, 400, 650, 450, 650, 1500, 600, 450, 650, 450, 600, 1500, 650, 450, 600, 500, 600, 1500, 600, 1550, 600, 450, 600, 1550, 600, 450, 600, 1550, 600, 1550, 600, 1550, 600, 1550, 600, 450, 600, 1550, 600, 1500, 600, 1550, 600, 450, 600, 500, 600, 450, 600, 500, 550, 1550, 600, 500, 550, 500, 600, 1550, 600, 1500, 600, 1550, 600, 500, 550, 500, 600, 450, 600, 500, 600, 450, 600, 500, 600, 450, 600, 450, 600, 1550, 600, 1550, 600, 1550, 550, 1600, 550, 1550, 550}; //COLE A LINHA RAW CORRESPONDENTE DENTRO DAS CHAVES
 /*--------------------------------------------------------------------------
   /*--------------------------------------------------------------------------
@@ -36,7 +39,7 @@ char mqttPort[10] = "15015";
 char mqttUser[40] = "nyggmttv";
 char mqttPassword[40] = "hMmfyHEX9rIr";
 char mqttTopic[40] = "TemperaturaAtual";
-char mqttName[40] = "Micros";
+char mqttName[40] = "Micros1";
 WiFiClient espClient;
 PubSubClient client(espClient);
 WiFiManagerParameter custom_mqtt_server("server", "mqttServer", mqttServer, 40);
@@ -70,7 +73,7 @@ void initMQTT() {
   }
 }
 
-void piscaled() {
+void piscaLed() {
   for (int i = 0; i < 15; i++) {
     digitalWrite(led, HIGH);
     delay(150);
@@ -78,22 +81,166 @@ void piscaled() {
     delay(150);
   }
 }
+void lerJson() {
+  //read configuration from FS json
+  Serial.println("mounting FS...");
+
+  if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/config.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/config.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+          Serial.println("\nparsed json");
+
+          strcpy(mqttServer, json["mqttServer"]);
+          strcpy(mqttPort, json["mqttPort"]);
+          strcpy(mqttUser, json["mqttUser"]);
+          strcpy(mqttPassword, json["mqttPassword"]);
+          strcpy(mqttTopic, json["mqttTopic"]);
+          strcpy(mqttName, json["mqttName"]);
+          strcpy(intervaloTempo, json["intervaloTempo"]);
+
+        } else {
+          Serial.println("failed to load json config");
+        }
+        configFile.close();
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
+  //end read
+}
+
+void lerParametros() {
+  strcpy(mqttServer, custom_mqtt_server.getValue());
+  strcpy(mqttPort, custom_mqtt_port.getValue());
+  strcpy(mqttUser, custom_mqtt_user.getValue());
+  strcpy(mqttPassword, custom_mqtt_password.getValue());
+  strcpy(mqttTopic, custom_mqtt_topic.getValue());
+  strcpy(mqttName, custom_mqtt_name.getValue());
+  strcpy(intervaloTempo, custom_intervalo_tempo.getValue());
+}
+
+void createFile(void) {
+  //Abre o sistema de arquivos
+  if (!SPIFFS.begin()) {
+    Serial.println("Erro ao abrir o sistema de arquivos");
+  } else {
+    Serial.println("Sistema de arquivos aberto com sucesso!");
+  }
+  File wFile;
+
+  //Cria o arquivo se ele não existir
+  if (SPIFFS.exists("/config.json")) {
+    Serial.println("Arquivo ja existe!");
+  } else {
+    Serial.println("Criando o arquivo...");
+    wFile = SPIFFS.open("/config.json", "w+");
+    Serial.println("saving config");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+
+    json["mqttServer"] = mqttServer;
+    json["mqttPort"] = mqttPort;
+    json["mqttUser"] = mqttUser;
+    json["mqttPassword"] = mqttPassword;
+    json["mqttTopic"] = mqttTopic;
+    json["mqttName"] = mqttName;
+    json["intervaloTempo"] = intervaloTempo;
+
+    json.printTo(Serial);
+    json.printTo(wFile);
+    //Verifica a criação do arquivo
+    if (!wFile) {
+      Serial.println("Erro ao criar arquivo!");
+    } else {
+      Serial.println("Arquivo criado com sucesso!");
+    }
+  }
+  wFile.close();
+}
+
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  Serial.println("Should save config");
+  shouldSaveConfig = true;
+}
+void gravarJson() {
+  if (SPIFFS.begin()) {
+    //save the custom parameters to FS
+    if (shouldSaveConfig)    {
+      Serial.println("saving config");
+      DynamicJsonBuffer jsonBuffer;
+      JsonObject& json = jsonBuffer.createObject();
+
+      json["mqttServer"] = mqttServer;
+      json["mqttPort"] = mqttPort;
+      json["mqttUser"] = mqttUser;
+      json["mqttPassword"] = mqttPassword;
+      json["mqttTopic"] = mqttTopic;
+      json["mqttName"] = mqttName;
+      json["intervaloTempo"] = intervaloTempo;
+
+      File configFile = SPIFFS.open("/config.json", "w");
+      if (!configFile) {
+        Serial.println("failed to open config file for writing");
+      }
+
+      json.printTo(Serial);
+      json.printTo(configFile);
+      configFile.close();
+      //end save
+    }
+  }
+}
 void rotinaModo() {
   // faz a leitura do pino D2 (no nosso caso, o botão está ligado nesse pino)
   modo = digitalRead(botao);
   // checa se o botão está pressionado
   if (modo == HIGH) {
-    piscaled();
-    delay(1000);
+    piscaLed();
     WiFiManager wifiManager;
-    wifiManager.startConfigPortal ( "MicrosWifiAP", "janela"  );
-    Serial. println ( " conectado ... yeey :) " );
+    wifiManager.setSaveConfigCallback(saveConfigCallback);
+    //add all your parameters here
+    WiFiManagerParameter text_config("<p><b>Configurations MQTT</b></p>");
+    wifiManager.addParameter(&text_config);
+    wifiManager.addParameter(&custom_mqtt_server);
+    wifiManager.addParameter(&custom_mqtt_port);
+    wifiManager.addParameter(&custom_mqtt_user);
+    wifiManager.addParameter(&custom_mqtt_password);
+    wifiManager.addParameter(&custom_mqtt_topic);
+    wifiManager.addParameter(&custom_mqtt_name);
+    WiFiManagerParameter text_tempo("<p><b>Intervalo de tempo verificar temperatura</b></p>");
+    wifiManager.addParameter(&text_tempo);
+    wifiManager.addParameter(&custom_intervalo_tempo);
+    wifiManager.startConfigPortal ( "MicrosWifiAP", "janela129"  );
+ 
+    lerParametros();
+    gravarJson();
+
   }
   else {
     WiFiManager wifiManager;
-    wifiManager.autoConnect("MicrosWifiAP", "janela");
+    wifiManager.autoConnect("MicrosWifiAP", "janela129");
+    //SPIFFS.format();
+    createFile();
+    lerJson();
   }
 }
+
 
 int parseInt(char* chars)
 {
@@ -118,6 +265,8 @@ int powInt(int x, int y)
 
 void setup() {
   Serial.begin(115200);
+  SPIFFS.begin();
+  lerJson();
   pinMode(led, OUTPUT);
   pinMode(botao, INPUT);
   rotinaModo();
@@ -137,7 +286,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println(String(topic) + "=" + String(message));
 
-  if (message >= "18" ) {
+  if (message.toInt() >= 24 ) {
     irsend.sendRaw(liga, tamanho, frequencia); // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
     Serial.println("Comando enviado: Liga");
     delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO;

@@ -14,6 +14,8 @@ char ipAddr[16] = "172.024.001.001";//Pi Access Point IP-Adr.
 #include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <EEPROM.h>
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
+//flag for saving data
+bool shouldSaveConfig = false;
 /*--------------------------------------------------------------------------
   --------------------------Configuracao modo ------------------------*/
 #include <ESP8266WebServer.h>
@@ -141,9 +143,6 @@ int powInt(int x, int y)
   return x;
 }
 
-//flag for saving data
-bool shouldSaveConfig = false;
-
 //callback notifying us of the need to save config
 void saveConfigCallback () {
   Serial.println("Should save config");
@@ -170,6 +169,7 @@ void rotinaModo() {
     wifiManager.addParameter(&text_tempo);
     wifiManager.addParameter(&custom_intervalo_tempo);
     wifiManager.startConfigPortal ( "MicrosWifiAP", "janela129"  );
+    
     lerParametros();
     gravarJson();
 
@@ -303,37 +303,42 @@ void createFile(void) {
   wFile.close();
 }
 void gravarJson() {
-  //save the custom parameters to FS
-  if (shouldSaveConfig)    {
-    Serial.println("saving config");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
+  if (SPIFFS.begin()) {
+    //save the custom parameters to FS
+    if (shouldSaveConfig)    {
+      Serial.println("saving config");
+      DynamicJsonBuffer jsonBuffer;
+      JsonObject& json = jsonBuffer.createObject();
 
-    json["mqttServer"] = mqttServer;
-    json["mqttPort"] = mqttPort;
-    json["mqttUser"] = mqttUser;
-    json["mqttPassword"] = mqttPassword;
-    json["mqttTopic"] = mqttTopic;
-    json["mqttName"] = mqttName;
-    json["intervaloTempo"] = intervaloTempo;
+      json["mqttServer"] = mqttServer;
+      json["mqttPort"] = mqttPort;
+      json["mqttUser"] = mqttUser;
+      json["mqttPassword"] = mqttPassword;
+      json["mqttTopic"] = mqttTopic;
+      json["mqttName"] = mqttName;
+      json["intervaloTempo"] = intervaloTempo;
 
-    File configFile = SPIFFS.open("/config.json", "r+");
-    if (!configFile) {
-      Serial.println("failed to open config file for writing");
+      File configFile = SPIFFS.open("/config.json", "w");
+      if (!configFile) {
+        Serial.println("failed to open config file for writing");
+      }
+
+      json.printTo(Serial);
+      json.printTo(configFile);
+      configFile.close();
+      //end save
     }
-
-    json.printTo(Serial);
-    json.printTo(configFile);
-    configFile.close();
-    //end save
   }
 }
 void setup() {
   pinMode(buzzer, OUTPUT);
   pinMode(botao, INPUT);
   Serial.begin(115200);
+  SPIFFS.begin();
+  lerJson();
   rotinaModo();
   DS18B20.begin();
+  lerJson();
   initMQTT();
 
   temperatura = getTemperatura();
