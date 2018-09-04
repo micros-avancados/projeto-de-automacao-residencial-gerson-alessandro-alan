@@ -227,7 +227,7 @@ void rotinaModo() {
     wifiManager.addParameter(&text_tempo);
     wifiManager.addParameter(&custom_intervalo_tempo);
     wifiManager.startConfigPortal ( "MicrosWifiAP", "janela129"  );
- 
+
     lerParametros();
     gravarJson();
 
@@ -285,14 +285,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
     message += c;
   }
   Serial.println(String(topic) + "=" + String(message));
-
-  if (message.toInt() >= 24 ) {
+  boolean arLigado = false;
+  if (message.toInt() >= 24 && arLigado == false ) {
     irsend.sendRaw(liga, tamanho, frequencia); // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
     Serial.println("Comando enviado: Liga");
     delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO;
+    arLigado == true;
   }
-  else {
-
+  else if (message.toInt() <= 17 && arLigado == true) {
+    irsend.sendRaw(desliga, tamanho, frequencia); // PARÂMETROS NECESSÁRIOS PARA ENVIO DO SINAL IR
+    Serial.println("Comando enviado: Desliga");
+    delay(50); // TEMPO(EM MILISEGUNDOS) DE INTERVALO ENTRE UM COMANDO E OUTRO;
+    arLigado == false;
   }
   Serial.flush();
 }
